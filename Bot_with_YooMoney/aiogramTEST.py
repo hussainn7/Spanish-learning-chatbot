@@ -6,14 +6,16 @@ from telebot import types
 import logging
 from g4f.client import Client
 import g4f
-from configTEST import TOKEN, PRICE
-from paymentTEST import check, create
+from configBOT import TOKEN, PRICE, information_about_company
+from paymentBOT import check, create
 import os
 import time
 import sqlite3
-import speech_recognition as sr
 from gtts import gTTS
-
+import os
+import pytube
+import speech_recognition as sr
+# https://www.youtube.com/watch?v=1aA1WGON49E&ab_channel=TEDxTalks
 
 logging.basicConfig(level=logging.INFO)
 
@@ -21,7 +23,7 @@ os.environ["PATH"] += os.pathsep + r"C:\ffmpeg\bin"
 
 g4f_client = Client()
 
-INTRODUCTION_MESSAGE = "For now on you are Amm, an English teacher. Ask me anything."
+INTRODUCTION_MESSAGE = "HI I am your English Teacher. Ask me anything."
 
 FREE_PERIOD = 1 * 10  # 10 seconds for testing
 
@@ -146,45 +148,121 @@ def text_to_speech(text):
 def start(message):
     user_id = message.from_user.id
     markup = types.ReplyKeyboardMarkup(row_width=1)
-    markup.add(types.KeyboardButton('Transcribe'), types.KeyboardButton('Translation'), types.KeyboardButton('Profile'), types.KeyboardButton("Start"), types.KeyboardButton("Who are we?"))
+    markup.add( types.KeyboardButton("Start"), types.KeyboardButton('Transcribe'), types.KeyboardButton('Profile'), types.KeyboardButton("Who are we?"))
     bot.reply_to(message, "Welcome!", reply_markup=markup)
 
 @bot.message_handler(func=lambda message: message.text == 'Who are we?')
 def who_are_we(message):
     markup_who = types.ReplyKeyboardMarkup(row_width=1)
-    markup_who.add(types.KeyboardButton('Studies'), types.KeyboardButton('Material'),types.KeyboardButton('Consulatation'), types.KeyboardButton("Idea to improve our service"))
-    bot.reply_to(message, "We are very good company!", reply_markup=markup_who)
+    markup_who.add(types.KeyboardButton('Material'),types.KeyboardButton('Consulatation'), types.KeyboardButton("Idea to improve our service"))
+    bot.reply_to(message, information_about_company, reply_markup=markup_who)
 
 @bot.message_handler(func=lambda message: message.text == 'Consulatation')
 def start_button(message):
-    bot.reply_to(message, "Contact us for further info")
+    bot.reply_to(message, "Contact (some number, email) for further process")
 
 @bot.message_handler(func=lambda message: message.text == 'Material')
 def start_button(message):
-    bot.reply_to(message, "Buy our full course")
+    bot.reply_to(message, "Here will be very interesting links to some material")
+
 
 @bot.message_handler(func=lambda message: message.text == 'Idea to improve our service')
-def start_button(message):
-    bot.reply_to(message, "Send us requests for making sevice better")
+def prompt_for_idea(message):
+    # Create a keyboard with a "Cancel" button
+    markup = types.ReplyKeyboardMarkup(row_width=1, one_time_keyboard=True)
+    markup.add(types.KeyboardButton('Cancel'))
+
+    msg = bot.reply_to(message, "Please type your idea to improve our service, or click 'Cancel' to go back:",
+                       reply_markup=markup)
+    bot.register_next_step_handler(msg, handle_idea_or_cancel)
+
+
+def handle_idea_or_cancel(message):
+    if message.text.lower() == 'cancel':
+        bot.send_message(message.chat.id, "Your request was successfully canceled.")
+        start(message)
+    else:
+        forward_idea_to_admin(message)
+
+
+
+def forward_idea_to_admin(message):
+    user_id = message.from_user.id
+    username = message.from_user.username
+    first_name = message.from_user.first_name
+    last_name = message.from_user.last_name
+
+    user_idea = message.text
+
+    # Format the user info
+    user_info = f"User ID: {user_id}\n"
+    if username:
+        user_info += f"Username: @{username}\n"
+    if first_name or last_name:
+        user_info += f"Name: {first_name} {last_name}\n"
+
+    # Format the message to include user info and their idea
+    admin_message = f"An idea to improve the service has been submitted:\n\n{user_idea}\n\nFrom:\n{user_info}"
+
+    # Send the idea to the admin
+    bot.send_message(ADMIN_USER_ID, admin_message)
+
+    # Confirm receipt to the user
+    bot.reply_to(message, "Thank you for your feedback! Your idea has been sent to our team.")
+
 
 @bot.message_handler(func=lambda message: message.text == 'Start')
 def start_button(message):
-    bot.reply_to(message, "For now on you are Amm, an English teacher. Ask me anything.")
+    bot.reply_to(message, "HI I am your English Teacher. Ask me anything.")
 
 
-# Transcribe button handler
+# New handler for the 'Transcribe' feature
 @bot.message_handler(func=lambda message: message.text == 'Transcribe')
 def handle_transcribe_button(message):
     user_id = message.from_user.id
     if not is_premium_user(user_id):
         bot.reply_to(message, "This feature is available only for premium users.")
     else:
-        bot.reply_to(message, "Please provide the YouTube URL for transcription.")
+        msg = bot.reply_to(message, "Please provide the YouTube URL for transcription:")
+        bot.register_next_step_handler(msg, transcribe_youtube_video)
 
-# Translation button handler
-@bot.message_handler(func=lambda message: message.text == 'Translation')
-def handle_translation_button(message):
-    bot.reply_to(message, "Please enter the text you want to translate.")
+def transcribe_youtube_video(message):
+    user_id = message.from_user.id
+    youtube_url = message.text
+
+    try:
+        # Step 1: Download YouTube video
+        bot.reply_to(message, "Downloading video...")
+        yt = pytube.YouTube(youtube_url)
+        video = yt.streams.filter(only_audio=True).first()
+        video_file = video.download(filename="youtube_audio.mp4")
+
+        # Step 2: Extract audio from video using ffmpeg
+        bot.reply_to(message, "Extracting audio from video...")
+        audio_file = "youtube_audio.wav"
+        subprocess.run(['ffmpeg', '-i', video_file, '-vn', '-acodec', 'pcm_s16le', '-ar', '16000', '-ac', '1', audio_file])
+
+        # Step 3: Convert audio to text
+        bot.reply_to(message, "Transcribing audio...")
+        recognizer = sr.Recognizer()
+        with sr.AudioFile(audio_file) as source:
+            audio_data = recognizer.record(source)
+            text = recognizer.recognize_google(audio_data)
+
+        # Step 4: Send the transcription back to the user
+        bot.reply_to(message, f"Transcription:\n\n{text}")
+
+        # Cleanup: Remove downloaded and processed files
+        os.remove(video_file)
+        os.remove(audio_file)
+
+    except Exception as e:
+        bot.reply_to(message, f"An error occurred: {e}")
+
+# # Translation button handler
+# @bot.message_handler(func=lambda message: message.text == 'Translation')
+# def handle_translation_button(message):
+#     bot.reply_to(message, "Please enter the text you want to translate.")
 
 # Profile button handler
 @bot.message_handler(func=lambda message: message.text == 'Profile')
@@ -195,17 +273,31 @@ def handle_profile_button(message):
     else:
         bot.reply_to(message, "Your status: Free")
 
-# Buy command handler
 @bot.message_handler(commands=['buy777'])
 def buy_handler(chat_id):
-    payment_url, payment_id = create(PRICE, chat_id)
-
+    # Create inline keyboard with two options: YooMoney and Crypto
     markup = types.InlineKeyboardMarkup()
-    pay_button = types.InlineKeyboardButton(text="Pay", url=payment_url)
-    check_button = types.InlineKeyboardButton(text="Check Payment", callback_data=f'check_{payment_id}')
-    markup.add(pay_button, check_button)
+    yoomoney_button = types.InlineKeyboardButton(text="YooMoney", callback_data='pay_yoomoney')
+    crypto_button = types.InlineKeyboardButton(text="Crypto", callback_data='pay_crypto')
+    markup.add(yoomoney_button, crypto_button)
 
-    bot.send_message(chat_id, "Your trial has ended\ncard details 5555555555554444", reply_markup=markup)
+    bot.send_message(chat_id, "You have been using our service for 1 minute. To continue using, you will have to pay. Please choose a payment method:", reply_markup=markup)
+
+@bot.callback_query_handler(func=lambda call: call.data in ['pay_yoomoney', 'pay_crypto'])
+def handle_payment_option(call):
+    chat_id = call.message.chat.id
+    if call.data == 'pay_yoomoney':
+        payment_url, payment_id = create(PRICE, chat_id)
+
+        # Create inline keyboard with Pay and Check Payment options
+        markup = types.InlineKeyboardMarkup()
+        pay_button = types.InlineKeyboardButton(text="Pay", url=payment_url)
+        check_button = types.InlineKeyboardButton(text="Check Payment", callback_data=f'check_{payment_id}')
+        markup.add(pay_button, check_button)
+
+        bot.send_message(chat_id, "Please complete your payment using YooMoney:", reply_markup=markup)
+    elif call.data == 'pay_crypto':
+        bot.send_message(chat_id, "We are already adding it.")
 
 
 # /saf command handler (clear used free periods)
