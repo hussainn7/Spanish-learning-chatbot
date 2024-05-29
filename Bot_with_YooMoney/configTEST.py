@@ -1,7 +1,8 @@
-TOKEN = "6597776046:AAFi8E55Rwfv1_Tt2D9QtCv04ylvx20_Os4"
+TOKEN = "7207723102:AAGG2GSf8gVr3TLH9WAIcIGU0mczacvAsas"
 
 PRICE = '950.00'
 
+information_about_company = 'We are wery good company, for exmpl'
 
 # ПЛАТЁЖ
 ACCOUNT_ID = 393037
