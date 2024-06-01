@@ -6,8 +6,8 @@ from telebot import types
 import logging
 from g4f.client import Client
 import g4f
-from configBOT import TOKEN, PRICE, information_about_company
-from paymentBOT import check, create
+from configTEST import TOKEN, PRICE, information_about_company
+from paymentTEST import check, create
 import os
 import sqlite3
 from gtts import gTTS
@@ -29,7 +29,7 @@ g4f_client = Client()
 
 INTRODUCTION_MESSAGE = ("Привет! Я твой учитель испанского языка. Спросите меня о чем угодно.")
 
-FREE_PERIOD = 1 * 10  # 10 seconds for testing
+FREE_PERIOD = 3 * 60  # 10 seconds for testing
 
 ADMIN_USER_ID = 1262676599
 
@@ -185,14 +185,13 @@ async def generate_response(text):
     return response
 
 
-# Function to convert voice message to text
-def voice_to_text(voice_file):
+def voice_to_text(voice_file, language="es-ES"):
     print("Converting voice to text...")
     recognizer = sr.Recognizer()
     with sr.AudioFile(voice_file) as source:
         audio_data = recognizer.record(source)
     try:
-        text = recognizer.recognize_google(audio_data)
+        text = recognizer.recognize_google(audio_data, language=language)
         print("Text converted from voice:", text)
         return text
     except sr.UnknownValueError:
@@ -203,7 +202,6 @@ def voice_to_text(voice_file):
         return None
 
 
-# Function to convert the audio file to WAV format
 def convert_to_wav(audio_file):
     print("Converting audio file to WAV format...")
     wav_file = 'converted_audio.wav'
@@ -212,14 +210,15 @@ def convert_to_wav(audio_file):
     return wav_file
 
 
-# Function to convert text to speech and save as OGG format using gTTS
-def text_to_speech(text):
+
+def text_to_speech(text, language="es"):
     print("Converting text to speech...")
-    tts = gTTS(text=text, lang='en')
+    tts = gTTS(text=text, lang=language)
     ogg_file = 'response.ogg'
     tts.save(ogg_file)
     print("Text converted to speech and saved as OGG format.")
     return ogg_file
+
 
 
 @bot.message_handler(commands=['start', 'language'])
@@ -248,7 +247,9 @@ def select_language(message):
         # Set user language to Russian
         markup = types.ReplyKeyboardMarkup(row_width=1)
         markup.add(types.KeyboardButton("🚀 Начать"),
-                   types.KeyboardButton('👥 Профиль'), types.KeyboardButton("📟Перевод"), types.KeyboardButton("🅰 Транскрибация"),
+                   types.KeyboardButton("🅰 Транскрибация"),
+                   types.KeyboardButton("📟Перевод"),
+                   types.KeyboardButton('👥 Профиль'),
                    types.KeyboardButton("❓ Что это?"))
         welcome_message = "Привет! Я твой учитель испанского языка. Спросите меня о чем угодно."
 
@@ -294,7 +295,7 @@ def send_announcement_to_all(user_id):
     # Send the announcement to users who have notifications enabled
     for user in users:
         if notification_preferences.get(user[0], True):
-            bot.send_message(user[0], 'Оповещение\n' + announcement_messages[user_id])
+            bot.send_message(user[0], announcement_messages[user_id])
 
     # Inform the admin about the successful announcement
     bot.send_message(user_id, "Сообщение успешно отправлено всем пользователям.")
@@ -534,7 +535,8 @@ def transcribe_youtube_video(message):
         recognizer = sr.Recognizer()
         with sr.AudioFile(audio_file) as source:
             audio_data = recognizer.record(source)
-            text = recognizer.recognize_google(audio_data)
+            # Specify the language for recognition (Spanish in this case)
+            text = recognizer.recognize_google(audio_data, language="es-ES")
 
         # Step 4: Send the transcription back to the user
         bot.reply_to(message, f"Транскрипция:\n\n{text}")
@@ -710,10 +712,8 @@ def handle_transcribe_button(message):
         bot.reply_to(message, "Премиум даёт много функций\nАудио/текст и многое др.\nКУПИТЬ СЕЙЧАС", reply_markup=markup_buy)
 
 
-
 @bot.message_handler(func=lambda message: message.text == '⛳Включить GPT-4o')
 def handle_transcribe_button(message):
-    user_id = message.from_user.id
     user_id = message.from_user.id
     markup = types.ReplyKeyboardMarkup(row_width=1)
     markup.add(types.KeyboardButton("🚀 Начать"), types.KeyboardButton('📝 Аудио в текст'),
@@ -724,12 +724,26 @@ def handle_transcribe_button(message):
     else:
         bot.reply_to(message, "Активировать GPT-4o\nБолее быстрый и надёжный")
         markup_profile = types.ReplyKeyboardMarkup(row_width=1, one_time_keyboard=True)
-        markup_profile.add(types.KeyboardButton('⛳Активировать'), reply_markup=markup)
+        markup_profile.add(types.KeyboardButton('⛳Активировать'), types.KeyboardButton('⛔ Деактивировать'))
+        bot.reply_to(message, "Выберите действие:", reply_markup=markup_profile)
 
 
 @bot.message_handler(func=lambda message: message.text == '⛳Активировать')
-def start_button(message):
-    bot.reply_to(message, "Поздравяляю GPT-4o был успешно активирован!")
+def activate_button(message):
+    bot.reply_to(message, "Поздравляю, GPT-4o был успешно активирован!")
+    # Optionally, return to the main menu or update the button layout
+
+
+@bot.message_handler(func=lambda message: message.text == '⛔ Деактивировать')
+def deactivate_button(message):
+    bot.reply_to(message, "GPT-4o был успешно деактивирован!")
+    # Return to the initial keyboard layout
+    markup = types.ReplyKeyboardMarkup(row_width=1)
+    markup.add(types.KeyboardButton("🚀 Начать"), types.KeyboardButton('📝 Аудио в текст'),
+               types.KeyboardButton('👥 Профиль'), types.KeyboardButton("📟Перевод"),
+               types.KeyboardButton("❓ Что это?"))
+    bot.reply_to(message, "Выберите действие:", reply_markup=markup)
+
 
 
 @bot.message_handler(commands=['buy777'])
@@ -782,7 +796,7 @@ def check_handler(callback_query):
     if result:
         chat_id = result.get('chat_id')
         mark_as_premium(chat_id)  # Mark the user as a premium user
-        bot.send_message(callback_query.message.chat.id, "Oплата прошла успешно! Вам был дан Premium")
+        bot.send_message(callback_query.message.chat.id, "Oплата прошла успешно! поздравляем с покупкой Premium")
     else:
         bot.send_message(callback_query.message.chat.id, "Оплата ещё не прошла или ошибка")
 
@@ -814,7 +828,7 @@ def handle_message(message):
         if message.text:
             # Translate only the generated responses
             user_message = message.text
-            user_message_with_reminder = f"Привет ты больше не языковой помощник, теперь учитель испанского языка \n{user_message} отвечай СТРОГО на испанском, говори очень коротко СТРОГО"
+            user_message_with_reminder = f"Привет ты больше не языковой помощник, теперь учитель испанского языка \n{user_message} отвечай СТРОГО на испанском, говори очень очень коротко "
 
             print("Generating response for text message...")
             loop = asyncio.new_event_loop()
@@ -832,7 +846,7 @@ def handle_message(message):
         if message.text:
             print("Text message received:", message.text)
             user_message = message.text
-            user_message_with_reminder = f"Привет ты больше не языковой помощник, теперь учитель испанского языка \n{user_message} отвечай СТРОГО на испанском, говори очень коротко СТРОГО"
+            user_message_with_reminder = f"Привет ты больше не языковой помощник, теперь учитель испанского языка \n{user_message} отвечай СТРОГО на испанском, говори очень очень коротко "
 
             print("Generating response for text message...")
             loop = asyncio.new_event_loop()
@@ -859,7 +873,7 @@ def handle_voice(message):
     print("Voice file saved locally as 'voice_message.ogg'.")
 
     wav_file = convert_to_wav('voice_message.ogg')
-    text = voice_to_text(wav_file)
+    text = voice_to_text(wav_file, language="es-ES")  # Set the language to Spanish
     if text:
         print("Voice message converted to text:", text)
         user_message_with_reminder = f"Привет ты теперь учитель испанского языка \n{text} отвечай СТРОГО на испанском, большие ответы не нужны"
@@ -870,7 +884,7 @@ def handle_voice(message):
         ai_response = loop.run_until_complete(generate_response(user_message_with_reminder))
 
         print("Converting text response to speech...")
-        speech_file = text_to_speech(ai_response)
+        speech_file = text_to_speech(ai_response, language="es")  # Set the TTS language to Spanish
 
         translation = translator.translate(ai_response, src='es', dest='ru')
 
@@ -891,7 +905,8 @@ def handle_voice(message):
         logging.info("Voice response and text sent.")
     else:
         print("Could not understand the voice message.")
-        bot.reply_to(message, "Sorry, I couldn't understand the voice message.")
+        bot.reply_to(message, "Повторите снова, я вас не расслышал")
+
 
 
 
