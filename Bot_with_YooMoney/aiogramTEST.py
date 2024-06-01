@@ -6,8 +6,8 @@ from telebot import types
 import logging
 from g4f.client import Client
 import g4f
-from configTEST import TOKEN, PRICE, information_about_company
-from paymentTEST import check, create
+from configBOT import TOKEN, PRICE, information_about_company
+from paymentBOT import check, create
 import os
 import sqlite3
 from gtts import gTTS
@@ -564,8 +564,12 @@ def handle_profile_button(message):
 
 @bot.message_handler(func=lambda message: message.text == '🔄 Reinicie')
 def handle_transcribe_button(message):
+    markup = types.ReplyKeyboardMarkup(row_width=1)
+    markup.add(types.KeyboardButton("🚀 Inicio"), types.KeyboardButton("🅰 Transcripción"),
+               types.KeyboardButton('👥 Perfil'),
+               types.KeyboardButton("❓ ¿Qué es eso?"))
     time.sleep(3)
-    bot.reply_to(message, 'El reinicio se ha realizado correctamente ♻️')
+    bot.reply_to(message, 'El reinicio se ha realizado correctamente ♻️', reply_markup=markup)
 
 
 @bot.message_handler(func=lambda message: message.text == '💎Prima')
@@ -580,9 +584,13 @@ def handle_transcribe_button(message):
 
 @bot.message_handler(func=lambda message: message.text == '⛳Activar GPT-4o')
 def handle_transcribe_button(message):
+    markup = types.ReplyKeyboardMarkup(row_width=1)
+    markup.add(types.KeyboardButton("🚀 Inicio"), types.KeyboardButton("🅰 Transcripción"),
+               types.KeyboardButton('👥 Perfil'),
+               types.KeyboardButton("❓ ¿Qué es eso?"))
     user_id = message.from_user.id
     if not is_premium_user(user_id):
-        bot.reply_to(message, "Esta función sólo está disponible para usuarios Premium.")
+        bot.reply_to(message, "Esta función sólo está disponible para usuarios Premium.", reply_markup=markup)
     else:
         msg = bot.reply_to(message, "Activar GPT-4o\nMás rápido y fiable")
 
@@ -651,8 +659,12 @@ def yazik_func(message):
 
 @bot.message_handler(func=lambda message: message.text == '🔄 Перезапуск')
 def handle_transcribe_button(message):
+    markup = types.ReplyKeyboardMarkup(row_width=1)
+    markup.add(types.KeyboardButton("🚀 Начать"), types.KeyboardButton('📝 Аудио в текст'),
+               types.KeyboardButton('👥 Профиль'), types.KeyboardButton("📟Перевод"),
+               types.KeyboardButton("❓ Что это?"))
     time.sleep(3)
-    bot.reply_to(message, 'Перезапуск был успешен ♻️')
+    bot.reply_to(message, 'Перезапуск был успешен ♻️',reply_markup=markup)
 
 
 @bot.message_handler(func=lambda message: message.text == '🔙 Назад в главное меню')
@@ -667,23 +679,52 @@ def back_menu(message):
 @bot.message_handler(func=lambda message: message.text == '💎Premium')
 def handle_transcribe_button(message):
     user_id = message.from_user.id
-    if is_premium_user(user_id):
-        bot.reply_to(message, "Вы уже имеете премиум, поздравляем!")
+
+    # Create inline keyboard markup for payment options
+    markup_buy = types.InlineKeyboardMarkup()
+    yoomoney_button = types.InlineKeyboardButton(text="YooMoney", callback_data='pay_yoomoney')
+    crypto_button = types.InlineKeyboardButton(text="Crypto", callback_data='pay_crypto')
+    markup_buy.add(yoomoney_button, crypto_button)
+
+    # Send a message prompting the user to choose a payment method
+    bot.send_message(
+        message.chat.id,  # Correct attribute is 'chat.id' instead of 'chat_id'
+        "Вы пользуетесь нашим сервисом в течение 1 минуты. Чтобы продолжить пользоваться сервисом, вам необходимо произвести оплату. Пожалуйста, выберите способ оплаты:",
+        reply_markup=markup_buy
+    )
+
+    # Create reply keyboard markup for main options
+    markup = types.ReplyKeyboardMarkup(row_width=1)
+    markup.add(
+        types.KeyboardButton("🚀 Начать"),
+        types.KeyboardButton('📝 Аудио в текст'),
+        types.KeyboardButton('👥 Профиль'),
+        types.KeyboardButton("📟Перевод"),
+        types.KeyboardButton("❓ Что это?")
+    )
+
+    # Check if the user is a premium user and respond accordingly
+    if is_premium_user(user_id):  # Ensure the function 'is_premium_user' is defined
+        bot.reply_to(message, "Вы уже имеете премиум, поздравляем!", reply_markup=markup)
     else:
-        msg = bot.reply_to(message, "Премиум даёт много функций\nАудио/текст\n и тд")
-        bot.reply_to(message, msg)
+        bot.reply_to(message, "Премиум даёт много функций\nАудио/текст и многое др.\nКУПИТЬ СЕЙЧАС", reply_markup=markup_buy)
+
 
 
 @bot.message_handler(func=lambda message: message.text == '⛳Включить GPT-4o')
 def handle_transcribe_button(message):
     user_id = message.from_user.id
+    user_id = message.from_user.id
+    markup = types.ReplyKeyboardMarkup(row_width=1)
+    markup.add(types.KeyboardButton("🚀 Начать"), types.KeyboardButton('📝 Аудио в текст'),
+               types.KeyboardButton('👥 Профиль'), types.KeyboardButton("📟Перевод"),
+               types.KeyboardButton("❓ Что это?"))
     if not is_premium_user(user_id):
-        bot.reply_to(message, "Эта функция доступна только для премиум-пользователей.")
+        bot.reply_to(message, "Эта функция доступна только для премиум-пользователей.", reply_markup=markup)
     else:
-        msg = bot.reply_to(message, "Активировать GPT-4o\nБолее быстрый и надёжный")
+        bot.reply_to(message, "Активировать GPT-4o\nБолее быстрый и надёжный")
         markup_profile = types.ReplyKeyboardMarkup(row_width=1, one_time_keyboard=True)
-        markup_profile.add(types.KeyboardButton('⛳Активировать'))
-        bot.reply_to(message, msg)
+        markup_profile.add(types.KeyboardButton('⛳Активировать'), reply_markup=markup)
 
 
 @bot.message_handler(func=lambda message: message.text == '⛳Активировать')
@@ -700,7 +741,7 @@ def buy_handler(chat_id):
     markup.add(yoomoney_button, crypto_button)
 
     bot.send_message(chat_id,
-                     "Has utilizado nuestro servicio durante 1 minuto. Para seguir utilizándolo, tendrá que pagar. Por favor, elija un método de pago:\nВы пользуетесь нашим сервисом в течение 1 минуты. Чтобы продолжить пользоваться сервисом, вам необходимо произвести оплату. Пожалуйста, выберите способ оплаты:",
+                     "Вы пользуетесь нашим сервисом в течение 1 минуты. Чтобы продолжить пользоваться сервисом, вам необходимо произвести оплату. Пожалуйста, выберите способ оплаты:",
                      reply_markup=markup)
 
 
