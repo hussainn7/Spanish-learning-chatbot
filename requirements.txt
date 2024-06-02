@@ -1,0 +1,11 @@
+aiogram==2.15
+googletrans==4.0.0-rc1
+g4f
+gTTS==2.2.4
+pytube==12.1.0
+pyTelegramBotAPI==4.9.0
+pytube3==9.6.4
+schedule==1.1.0
+SpeechRecognition==3.8.1
+telebot==0.0.4
+yookassa==2.0.4
