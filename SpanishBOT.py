@@ -179,7 +179,7 @@ async def generate_response(text):
     response = await g4f.ChatCompletion.create_async(
         model=g4f.models.default,
         messages=[{"role": "user", "content": text}],
-        provider=g4f.Provider.PerplexityLabs
+        provider=g4f.Provider.Koala
     )
     print("Response generated.")
     return response
