@@ -6,8 +6,8 @@ from telebot import types
 import logging
 from g4f.client import Client
 import g4f
-from configTEST import TOKEN, PRICE, information_about_company
-from paymentTEST import check, create
+from config import TOKEN, PRICE, information_about_company
+from payment import check, create
 import os
 import sqlite3
 from gtts import gTTS
@@ -17,9 +17,8 @@ import datetime
 import schedule
 import time
 from googletrans import Translator
-
+# Made by @hussainn7
 translator = Translator()
-# https://www.youtube.com/watch?v=1aA1WGON49E&ab_channel=TEDxTalks
 
 logging.basicConfig(level=logging.INFO)
 
@@ -29,7 +28,7 @@ g4f_client = Client()
 
 INTRODUCTION_MESSAGE = ("Привет! Я твой учитель испанского языка. Спросите меня о чем угодно.")
 
-FREE_PERIOD = 3 * 60  # 10 seconds for testing
+FREE_PERIOD = 3 * 60  # Needs to be adjusted as you want it to be (for now it is 3mint)
 
 ADMIN_USER_ID = 1262676599
 
@@ -226,7 +225,6 @@ def start(message):
     user_id = message.from_user.id
     markup = types.ReplyKeyboardMarkup(row_width=1)
 
-    # Adding language selection options
     markup.add(types.KeyboardButton("🇪🇸 Español"), types.KeyboardButton("🇷🇺 Русский"))
 
     bot.reply_to(message, "Hola! 🌟 Elige tu idioma preferido / Выберите ваш язык", reply_markup=markup)
@@ -237,14 +235,12 @@ def select_language(message):
     language = message.text
 
     if language == "🇪🇸 Español":
-        # Set user language to Spanish
         markup = types.ReplyKeyboardMarkup(row_width=1)
         markup.add(types.KeyboardButton("🚀 Inicio"),types.KeyboardButton("🅰 Transcripción"),
                    types.KeyboardButton('👥 Perfil'),
                    types.KeyboardButton("❓ ¿Qué es eso?"))
         welcome_message = "¡Hola! Soy tu profesor de español. ¡Pregúntame cualquier cosa!"
     elif language == "🇷🇺 Русский":
-        # Set user language to Russian
         markup = types.ReplyKeyboardMarkup(row_width=1)
         markup.add(types.KeyboardButton("🚀 Начать"),
                    types.KeyboardButton("🅰 Транскрибация"),
@@ -259,27 +255,21 @@ def select_language(message):
 translation_enabled = False
 
 
-# Define a dictionary to store the announcement messages
 announcement_messages = {}
 
-# Handler for the /announce command
 @bot.message_handler(commands=['announce'])
 def start_announcement(message):
-    # Set the user's state to 'waiting_for_announcement'
     user_id = message.from_user.id
     announcement_messages[user_id] = ''
     bot.send_message(user_id, "Отправьте оповещение, чтобы всем разослать.")
 
-# Handler for receiving the announcement message
 @bot.message_handler(func=lambda message: message.from_user.id in announcement_messages and announcement_messages[message.from_user.id] == '' and notification_preferences.get(message.from_user.id, True))
 def receive_announcement(message):
     user_id = message.from_user.id
     announcement_message = message.text
-    # Save the announcement message
     announcement_messages[user_id] = announcement_message
     bot.send_message(user_id, "Сообщение для оповещения сохранено. Начинаю отправку...")
 
-    # Proceed with the announcement process
     send_announcement_to_all(user_id)
 
 def send_announcement_to_all(user_id):
@@ -292,12 +282,10 @@ def send_announcement_to_all(user_id):
     finally:
         conn.close()
 
-    # Send the announcement to users who have notifications enabled
     for user in users:
         if notification_preferences.get(user[0], True):
             bot.send_message(user[0], announcement_messages[user_id])
 
-    # Inform the admin about the successful announcement
     bot.send_message(user_id, "Сообщение успешно отправлено всем пользователям.")
 
 
@@ -518,30 +506,24 @@ def transcribe_youtube_video(message):
     youtube_url = message.text
 
     try:
-        # Step 1: Download YouTube video
         bot.reply_to(message, "Загрузка видео...")
         yt = pytube.YouTube(youtube_url)
         video = yt.streams.filter(only_audio=True).first()
         video_file = video.download(filename="youtube_audio.mp4")
 
-        # Step 2: Extract audio from video using ffmpeg
         bot.reply_to(message, "Извлечение звука из видео...")
         audio_file = "youtube_audio.wav"
         subprocess.run(
             ['ffmpeg', '-i', video_file, '-vn', '-acodec', 'pcm_s16le', '-ar', '16000', '-ac', '1', audio_file])
 
-        # Step 3: Convert audio to text
         bot.reply_to(message, "Транскрибирование аудио...")
         recognizer = sr.Recognizer()
         with sr.AudioFile(audio_file) as source:
             audio_data = recognizer.record(source)
-            # Specify the language for recognition (Spanish in this case)
             text = recognizer.recognize_google(audio_data, language="es-ES")
 
-        # Step 4: Send the transcription back to the user
         bot.reply_to(message, f"Транскрипция:\n\n{text}")
 
-        # Cleanup: Remove downloaded and processed files
         os.remove(video_file)
         os.remove(audio_file)
 
@@ -682,20 +664,17 @@ def back_menu(message):
 def handle_transcribe_button(message):
     user_id = message.from_user.id
 
-    # Create inline keyboard markup for payment options
     markup_buy = types.InlineKeyboardMarkup()
     yoomoney_button = types.InlineKeyboardButton(text="YooMoney", callback_data='pay_yoomoney')
     crypto_button = types.InlineKeyboardButton(text="Crypto", callback_data='pay_crypto')
     markup_buy.add(yoomoney_button, crypto_button)
 
-    # Send a message prompting the user to choose a payment method
     bot.send_message(
-        message.chat.id,  # Correct attribute is 'chat.id' instead of 'chat_id'
+        message.chat.id,
         "Вы пользуетесь нашим сервисом в течение 1 минуты. Чтобы продолжить пользоваться сервисом, вам необходимо произвести оплату. Пожалуйста, выберите способ оплаты:",
         reply_markup=markup_buy
     )
 
-    # Create reply keyboard markup for main options
     markup = types.ReplyKeyboardMarkup(row_width=1)
     markup.add(
         types.KeyboardButton("🚀 Начать"),
@@ -705,8 +684,7 @@ def handle_transcribe_button(message):
         types.KeyboardButton("❓ Что это?")
     )
 
-    # Check if the user is a premium user and respond accordingly
-    if is_premium_user(user_id):  # Ensure the function 'is_premium_user' is defined
+    if is_premium_user(user_id):
         bot.reply_to(message, "Вы уже имеете премиум, поздравляем!", reply_markup=markup)
     else:
         bot.reply_to(message, "Премиум даёт много функций\nАудио/текст и многое др.\nКУПИТЬ СЕЙЧАС", reply_markup=markup_buy)
@@ -742,7 +720,6 @@ def activate_button(message):
 @bot.message_handler(func=lambda message: message.text == '⛔ Деактивировать')
 def deactivate_button(message):
     bot.reply_to(message, "GPT-4o был успешно деактивирован!")
-    # Return to the initial keyboard layout
     markup = types.ReplyKeyboardMarkup(row_width=1)
     markup.add(types.KeyboardButton("🚀 Начать"),
                types.KeyboardButton("🅰 Транскрибация"),
@@ -755,7 +732,6 @@ def deactivate_button(message):
 
 @bot.message_handler(commands=['buy777'])
 def buy_handler(chat_id):
-    # Create inline keyboard with two options: YooMoney and Crypto
     markup = types.InlineKeyboardMarkup()
     yoomoney_button = types.InlineKeyboardButton(text="YooMoney", callback_data='pay_yoomoney')
     crypto_button = types.InlineKeyboardButton(text="Crypto", callback_data='pay_crypto')
@@ -772,7 +748,6 @@ def handle_payment_option(call):
     if call.data == 'pay_yoomoney':
         payment_url, payment_id = create(PRICE, chat_id)
 
-        # Create inline keyboard with Pay and Check Payment options
         markup = types.InlineKeyboardMarkup()
         pay_button = types.InlineKeyboardButton(text="Оплатить", url=payment_url)
         check_button = types.InlineKeyboardButton(text="Проверить", callback_data=f'check_{payment_id}')
@@ -783,7 +758,6 @@ def handle_payment_option(call):
         bot.send_message(chat_id, "Мы уже добавляем его.")
 
 
-# /saf command handler (clear used free periods)
 @bot.message_handler(commands=['saf'])
 def handle_saf(message):
     user_id = message.from_user.id
@@ -795,20 +769,18 @@ def handle_saf(message):
         bot.reply_to(message, "You are not authorized to use this command.")
 
 
-# Callback query handler for checking payment
 @bot.callback_query_handler(func=lambda call: call.data.startswith('check'))
 def check_handler(callback_query):
     payment_id = callback_query.data.split('_')[1]
     result = check(payment_id)
     if result:
         chat_id = result.get('chat_id')
-        mark_as_premium(chat_id)  # Mark the user as a premium user
+        mark_as_premium(chat_id)
         bot.send_message(callback_query.message.chat.id, "Oплата прошла успешно! поздравляем с покупкой Premium")
     else:
         bot.send_message(callback_query.message.chat.id, "Оплата ещё не прошла или ошибка")
 
 
-# Function to check if user is within free period
 def is_within_free_period(user_id):
     if user_id not in user_start_times:
         user_start_times[user_id] = time.time()
@@ -825,15 +797,12 @@ def is_within_free_period(user_id):
 def handle_message(message):
     user_id = message.from_user.id
 
-    # Check if user is within free period or is a premium user
     if not is_within_free_period(user_id) and not is_premium_user(user_id):
-        buy_handler(message.chat.id)  # Pass chat.id directly
+        buy_handler(message.chat.id)
         return
 
     if translation_enabled:
-        # If translation mode is enabled
         if message.text:
-            # Translate only the generated responses
             user_message = message.text
             user_message_with_reminder = f"Привет ты больше не языковой помощник, теперь учитель испанского языка \n{user_message} отвечай СТРОГО на испанском, говори очень очень коротко "
 
@@ -842,14 +811,11 @@ def handle_message(message):
             asyncio.set_event_loop(loop)
             ai_response = loop.run_until_complete(generate_response(user_message_with_reminder))
 
-            # Translate the generated response
             translation = translator.translate(ai_response, src='es', dest='ru')
 
-            # Send original and translated messages
             bot.send_message(message.chat.id, f"{ai_response}")
             bot.send_message(message.chat.id, f"Перевод:\n\n{translation.text}")
     else:
-        # If translation mode is off or message is empty, proceed with generating response
         if message.text:
             print("Text message received:", message.text)
             user_message = message.text
@@ -867,7 +833,7 @@ def handle_message(message):
 def handle_voice(message):
     user_id = message.from_user.id
     if not is_within_free_period(user_id) and not is_premium_user(user_id):
-        buy_handler(message.chat.id)  # Pass chat.id directly
+        buy_handler(message.chat.id)
         return
 
     print("Voice message received.")
@@ -880,7 +846,7 @@ def handle_voice(message):
     print("Voice file saved locally as 'voice_message.ogg'.")
 
     wav_file = convert_to_wav('voice_message.ogg')
-    text = voice_to_text(wav_file, language="es-ES")  # Set the language to Spanish
+    text = voice_to_text(wav_file, language="es-ES")
     if text:
         print("Voice message converted to text:", text)
         user_message_with_reminder = f"Привет ты теперь учитель испанского языка \n{text} отвечай СТРОГО на испанском, большие ответы не нужны"
@@ -891,22 +857,18 @@ def handle_voice(message):
         ai_response = loop.run_until_complete(generate_response(user_message_with_reminder))
 
         print("Converting text response to speech...")
-        speech_file = text_to_speech(ai_response, language="es")  # Set the TTS language to Spanish
-
+        speech_file = text_to_speech(ai_response, language="es")
         translation = translator.translate(ai_response, src='es', dest='ru')
 
         print("Sending voice response...")
 
-        # Check if transcription is enabled
         if translation_enabled:
-            # Send both voice and text messages
             bot.send_voice(message.chat.id, open(speech_file, 'rb'))
             escaped_ai_response = escape_markdown_v2(ai_response)
             spoiler_text = f"||{escaped_ai_response}||"
             bot.send_message(message.chat.id, spoiler_text, parse_mode='MarkdownV2')
             bot.send_message(message.chat.id, translation.text)
         else:
-            # Send only the voice message
             bot.send_voice(message.chat.id, open(speech_file, 'rb'))
 
         logging.info("Voice response and text sent.")
@@ -926,3 +888,6 @@ bot.polling()
 while True:
     schedule.run_pending()
     time.sleep(60)
+
+
+# Made by @hussainn7
